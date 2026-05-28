@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Backend Health Check</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    
+    body {
+      background: linear-gradient(135deg, #1e3a8a, #9333ea);
+      color: white;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    
+    .header h1 {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+    
+    .header p {
+      color: rgba(255,255,255,0.7);
+    }
+    
+    .test-panel {
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 30px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    
+    .test-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px;
+      margin: 10px 0;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      border-left: 4px solid #3b82f6;
+    }
+    
+    .test-item.success {
+      border-left-color: #10b981;
+      background: rgba(16, 185, 129, 0.1);
+    }
+    
+    .test-item.error {
+      border-left-color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+    }
+    
+    .test-item.loading {
+      border-left-color: #f59e0b;
+      background: rgba(245, 158, 11, 0.1);
+    }
+    
+    .test-name {
+      font-weight: 600;
+      flex: 1;
+    }
+    
+    .test-status {
+      font-size: 20px;
+      min-width: 40px;
+      text-align: right;
+    }
+    
+    .test-response {
+      background: rgba(0,0,0,0.3);
+      padding: 12px;
+      margin-top: 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      max-height: 150px;
+      overflow-y: auto;
+      color: #a0e7e5;
+      font-family: 'Courier New', monospace;
+    }
+    
+    button {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 8px;
+      background: #3b82f6;
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 20px;
+    }
+    
+    button:hover {
+      background: #2563eb;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+    }
+    
+    button:disabled {
+      background: #6b7280;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .summary {
+      background: rgba(16, 185, 129, 0.2);
+      border: 2px solid #10b981;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 20px;
+      text-align: center;
+    }
+    
+    .summary.error {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: #ef4444;
+    }
+    
+    .summary h3 {
+      margin-bottom: 10px;
+      font-size: 18px;
+    }
+    
+    .summary p {
+      color: rgba(255,255,255,0.8);
+      font-size: 14px;
+    }
+    
+    .code-block {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      padding: 15px;
+      margin: 15px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>🔍 Backend Health Check</h1>
+    <p>Monitor your Task Manager backend status in real-time</p>
+  </div>
+  
+  <div class="test-panel">
+    <h2>Health Status Tests</h2>
+    
+    <div id="healthCheck" class="test-item loading">
+      <span class="test-name">🏥 Backend Health Check</span>
+      <span class="test-status">⏳</span>
+      <div class="test-response" id="health-response" style="display:none;"></div>
+    </div>
+    
+    <div id="mongoCheck" class="test-item loading">
+      <span class="test-name">💾 MongoDB Connection</span>
+      <span class="test-status">⏳</span>
+      <div class="test-response" id="mongo-response" style="display:none;"></div>
+    </div>
+    
+    <div id="authCheck" class="test-item loading">
+      <span class="test-name">🔐 Auth API Check</span>
+      <span class="test-status">⏳</span>
+      <div class="test-response" id="auth-response" style="display:none;"></div>
+    </div>
+    
+    <div id="tasksCheck" class="test-item loading">
+      <span class="test-name">📋 Tasks API Check (requires token)</span>
+      <span class="test-status">⏳</span>
+      <div class="test-response" id="tasks-response" style="display:none;"></div>
+    </div>
+    
+    <div id="corsCheck" class="test-item loading">
+      <span class="test-name">🌐 CORS Check</span>
+      <span class="test-status">⏳</span>
+      <div class="test-response" id="cors-response" style="display:none;"></div>
+    </div>
+    
+    <button onclick="runAllTests()" id="testBtn">▶️ Run All Tests</button>
+    <div id="summary"></div>
+  </div>
+  
+  <div class="test-panel">
+    <h2>📚 Quick Test Commands</h2>
+    <p style="margin-bottom: 15px; color: rgba(255,255,255,0.7);">Copy these to browser console (F12):</p>
+    
+    <div class="code-block">
+// Health Check<br>
+fetch('http://localhost:5000/health')<br>
+  .then(r => r.json())<br>
+  .then(d => console.log('✅ Health:', d))<br>
+  .catch(e => console.error('❌ Error:', e));
+    </div>
+    
+    <div class="code-block">
+// Test Signup<br>
+fetch('http://localhost:5000/api/auth/signup', {<br>
+  method: 'POST',<br>
+  headers: { 'Content-Type': 'application/json' },<br>
+  body: JSON.stringify({<br>
+    name: 'Test', email: 'test@mail.com', password: 'pass123'<br>
+  })<br>
+})<br>
+  .then(r => r.json())<br>
+  .then(d => console.log('✅ Signup:', d))<br>
+  .catch(e => console.error('❌ Error:', e));
+    </div>
+  </div>
+  
+  <div class="test-panel">
+    <h2>🛠️ Troubleshooting</h2>
+    <ul style="list-style: none; color: rgba(255,255,255,0.8); line-height: 2;">
+      <li>✓ Make sure MongoDB is running: <code style="background: rgba(0,0,0,0.3); padding: 5px;">mongod</code></li>
+      <li>✓ Backend should show: <code style="background: rgba(0,0,0,0.3); padding: 5px;">Server running on port 5000</code></li>
+      <li>✓ All tests should show green ✅ status</li>
+      <li>✓ If any test fails, check the response message</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+const API_BASE = 'http://localhost:5000';
+
+async function runAllTests() {
+  const btn = document.getElementById('testBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Running Tests...';
+  
+  const results = {
+    passed: 0,
+    failed: 0
+  };
+  
+  // Test 1: Health Check
+  await testEndpoint(
+    'healthCheck',
+    `${API_BASE}/health`,
+    'GET',
+    null,
+    results,
+    false
+  );
+  
+  // Test 2: MongoDB Check - Create a test user
+  const testEmail = `test${Date.now()}@example.com`;
+  await testEndpoint(
+    'mongoCheck',
+    `${API_BASE}/api/auth/signup`,
+    'POST',
+    {
+      name: 'MongoDB Test User',
+      email: testEmail,
+      password: 'test123456'
+    },
+    results,
+    true
+  );
+  
+  // Test 3: Auth API - Try login
+  await testEndpoint(
+    'authCheck',
+    `${API_BASE}/api/auth/login`,
+    'POST',
+    { 
+      email: testEmail, 
+      password: 'test123456' 
+    },
+    results,
+    false
+  );
+  
+  // Test 4: Tasks API - Get tasks (this will fail without token, but that's expected)
+  await testEndpoint(
+    'tasksCheck',
+    `${API_BASE}/api/tasks/get`,
+    'GET',
+    null,
+    results,
+    false
+  );
+  
+  // Test 5: CORS Check - Just verify root endpoint responds
+  await testEndpoint(
+    'corsCheck',
+    `${API_BASE}/`,
+    'GET',
+    null,
+    results,
+    true
+  );
+  
+  // Summary
+  const summaryDiv = document.getElementById('summary');
+  const allPassed = results.failed === 0;
+  
+  summaryDiv.innerHTML = `
+    <div class="summary ${!allPassed ? 'error' : ''}">
+      <h3>${allPassed ? '✅ All Tests Passed!' : '⚠️ Some Tests Failed'}</h3>
+      <p>Passed: ${results.passed} | Failed: ${results.failed}</p>
+      ${allPassed ? '<p>Your backend is running smoothly! 🎉</p>' : '<p>Check the errors above to troubleshoot</p>'}
+    </div>
+  `;
+  
+  btn.disabled = false;
+  btn.textContent = '▶️ Run Tests Again';
+}
+
+async function testEndpoint(id, url, method, body, results, isMongoTest = false) {
+  const item = document.getElementById(id);
+  const statusEl = item.querySelector('.test-status');
+  const responseEl = item.querySelector('.test-response');
+  
+  try {
+    const options = {
+      method,
+      headers: { 'Content-Type': 'application/json' }
+    };
+    
+    if (body) options.body = JSON.stringify(body);
+    
+    const response = await fetch(url, options);
+    let data;
+    
+    // Check content type to know how to parse response
+    const contentType = response.headers.get('content-type');
+    
+    if (contentType && contentType.includes('application/json')) {
+      try {
+        data = await response.json();
+      } catch (e) {
+        data = { error: 'Could not parse JSON response' };
+      }
+    } else {
+      // For text responses, don't try to parse as JSON
+      const text = await response.text();
+      data = { message: text };
+    }
+    
+    // Success if status is 2xx (200-299)
+    const isSuccess = response.status >= 200 && response.status < 300;
+    
+    if (isSuccess) {
+      item.classList.remove('loading', 'error');
+      item.classList.add('success');
+      statusEl.textContent = '✅';
+      results.passed++;
+    } else {
+      item.classList.remove('loading', 'success');
+      item.classList.add('error');
+      statusEl.textContent = '❌';
+      results.failed++;
+    }
+    
+    responseEl.style.display = 'block';
+    responseEl.textContent = JSON.stringify(data, null, 2).substring(0, 500);
+    
+  } catch (error) {
+    item.classList.remove('loading', 'success');
+    item.classList.add('error');
+    statusEl.textContent = '❌';
+    responseEl.style.display = 'block';
+    responseEl.textContent = `Error: ${error.message}\n\nMake sure:\n1. Backend is running (npm run dev)\n2. MongoDB is running (mongod)\n3. Port 5000 is available`;
+    results.failed++;
+  }
+}
+
+// Auto-run tests on page load
+window.addEventListener('load', () => {
+  setTimeout(runAllTests, 500);
+});
+</script>
+
+</body>
+</html>
